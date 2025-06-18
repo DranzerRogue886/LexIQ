@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, Dimensions } from 'react-native';
 import { Text, IconButton, useTheme, Portal, Surface, Button } from 'react-native-paper';
-import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
 import { useVocabulary, WordData } from '../contexts/VocabularyContext';
 
 interface VocabularyLookupProps {
@@ -32,7 +32,6 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({
   const [wordData, setWordData] = useState<DictionaryWordData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const isMountedRef = useRef(true);
 
@@ -43,9 +42,6 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      if (sound) {
-        sound.unloadAsync();
-      }
     };
   }, []);
 
@@ -93,17 +89,16 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({
   }, [word]);
 
   const playAudio = async () => {
-    if (!wordData?.audio) return;
+    if (!wordData?.word) return;
 
     try {
-      if (sound) {
-        await sound.unloadAsync();
-      }
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: wordData.audio },
-        { shouldPlay: true }
-      );
-      setSound(newSound);
+      Speech.speak(wordData.word, {
+        rate: 0.8,
+        pitch: 1.0,
+        language: 'en-US',
+        onDone: () => console.log('TTS playback completed'),
+        onError: (error) => console.error('TTS error:', error),
+      });
     } catch (error) {
       console.error('Error playing audio:', error);
     }
@@ -170,13 +165,11 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({
                     <Text style={{ color: theme.colors.onSurface }}>
                       {wordData.phonetics}
                     </Text>
-                    {wordData.audio && (
-                      <IconButton
-                        icon="volume-high"
-                        size={20}
-                        onPress={playAudio}
-                      />
-                    )}
+                    <IconButton
+                      icon="volume-high"
+                      size={20}
+                      onPress={playAudio}
+                    />
                   </View>
                 )}
 

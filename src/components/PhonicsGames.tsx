@@ -29,6 +29,8 @@ const PhonicsGames: React.FC<PhonicsGamesProps> = ({ onClose }) => {
   const [gameStarted, setGameStarted] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [attempts, setAttempts] = useState(0);
   const [draggedItems, setDraggedItems] = useState<string[]>([]);
 
   // Game questions database
@@ -175,16 +177,29 @@ const PhonicsGames: React.FC<PhonicsGamesProps> = ({ onClose }) => {
     setGameStarted(true);
     setSelectedAnswer(null);
     setIsCorrect(null);
+    setShowFeedback(false);
+    setAttempts(0);
   };
 
   const handleAnswerSelect = (answer: string) => {
+    if (showFeedback) return; // Prevent multiple selections while showing feedback
+    
     setSelectedAnswer(answer);
     const correct = answer === currentQ.answer;
     setIsCorrect(correct);
+    setShowFeedback(true);
     
     if (correct) {
       setScore(score + 1);
+    } else {
+      setAttempts(attempts + 1);
     }
+  };
+
+  const handleRetry = () => {
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+    setShowFeedback(false);
   };
 
   const handleNext = () => {
@@ -192,6 +207,8 @@ const PhonicsGames: React.FC<PhonicsGamesProps> = ({ onClose }) => {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(null);
       setIsCorrect(null);
+      setShowFeedback(false);
+      setAttempts(0);
     } else {
       // Game finished
       setGameStarted(false);
@@ -240,13 +257,21 @@ const PhonicsGames: React.FC<PhonicsGamesProps> = ({ onClose }) => {
               selectedAnswer === option && {
                 backgroundColor: isCorrect ? theme.colors.primary : theme.colors.error,
               },
+              showFeedback && selectedAnswer !== option && option === currentQ.answer && {
+                backgroundColor: theme.colors.primary,
+                opacity: 0.7,
+              },
             ]}
             onPress={() => handleAnswerSelect(option)}
-            disabled={selectedAnswer !== null}
+            disabled={showFeedback}
           >
             <Text style={[
               styles.optionText,
-              { color: selectedAnswer === option ? 'white' : theme.colors.onSurface }
+              { 
+                color: selectedAnswer === option || (showFeedback && option === currentQ.answer) 
+                  ? 'white' 
+                  : theme.colors.onSurface 
+              }
             ]}>
               {option}
             </Text>
@@ -312,13 +337,21 @@ const PhonicsGames: React.FC<PhonicsGamesProps> = ({ onClose }) => {
               selectedAnswer === option && {
                 backgroundColor: isCorrect ? theme.colors.primary : theme.colors.error,
               },
+              showFeedback && selectedAnswer !== option && option === currentQ.answer && {
+                backgroundColor: theme.colors.primary,
+                opacity: 0.7,
+              },
             ]}
             onPress={() => handleAnswerSelect(option)}
-            disabled={selectedAnswer !== null}
+            disabled={showFeedback}
           >
             <Text style={[
               styles.optionText,
-              { color: selectedAnswer === option ? 'white' : theme.colors.onSurface }
+              { 
+                color: selectedAnswer === option || (showFeedback && option === currentQ.answer) 
+                  ? 'white' 
+                  : theme.colors.onSurface 
+              }
             ]}>
               {option}
             </Text>
@@ -415,22 +448,34 @@ const PhonicsGames: React.FC<PhonicsGamesProps> = ({ onClose }) => {
 
         {renderGame()}
 
-        {selectedAnswer && (
+        {showFeedback && (
           <View style={styles.feedbackContainer}>
             <Text style={[
               styles.feedback,
               { color: isCorrect ? theme.colors.primary : theme.colors.error }
             ]}>
-              {isCorrect ? '✅ Correct!' : '❌ Try again!'}
+              {isCorrect ? '✅ Correct!' : `❌ Try again! (Attempt ${attempts})`}
             </Text>
             
-            <Button
-              mode="contained"
-              onPress={handleNext}
-              style={styles.nextButton}
-            >
-              {currentQuestion < currentQuestions.length - 1 ? 'Next Question' : 'Finish Game'}
-            </Button>
+            <View style={styles.feedbackButtons}>
+              {!isCorrect && (
+                <Button
+                  mode="outlined"
+                  onPress={handleRetry}
+                  style={styles.retryButton}
+                >
+                  Try Again
+                </Button>
+              )}
+              
+              <Button
+                mode="contained"
+                onPress={handleNext}
+                style={styles.nextButton}
+              >
+                {currentQuestion < currentQuestions.length - 1 ? 'Next Question' : 'Finish Game'}
+              </Button>
+            </View>
           </View>
         )}
       </Card.Content>
@@ -591,8 +636,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 12,
   },
+  feedbackButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  retryButton: {
+    marginRight: 8,
+  },
   nextButton: {
-    marginTop: 8,
+    marginLeft: 8,
   },
 });
 

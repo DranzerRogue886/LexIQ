@@ -1,4 +1,5 @@
-import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
+import { Platform } from 'react-native';
 
 export interface PronunciationOptions {
   rate?: number;
@@ -14,97 +15,62 @@ export interface PhonemeAudio {
 }
 
 class AudioPronunciationService {
-  private sound: Audio.Sound | null = null;
   private isInitialized = false;
 
   async initialize() {
     if (this.isInitialized) return;
-
-    try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        staysActiveInBackground: false,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
-      this.isInitialized = true;
-    } catch (error) {
-      console.error('Failed to initialize audio service:', error);
-    }
+    this.isInitialized = true;
   }
 
   async playWord(word: string, options: PronunciationOptions = {}) {
     await this.initialize();
-
-    try {
-      // Try to get audio from dictionary API first
-      const audioUrl = `https://api.dictionaryapi.dev/media/pronunciations/en/${word.toLowerCase()}.mp3`;
-      
-      if (this.sound) {
-        await this.sound.unloadAsync();
-      }
-
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: audioUrl },
-        { shouldPlay: true }
-      );
-      
-      this.sound = sound;
-      
-      // Set up error handling for audio playback
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          this.cleanup();
-        }
-      });
-
-      return true;
-    } catch (error) {
-      console.log('Dictionary API audio not available, using TTS fallback');
-      return this.playWithTTS(word, options);
-    }
+    return this.playWithTTS(word, options);
   }
 
   async playWithTTS(text: string, options: PronunciationOptions = {}) {
     await this.initialize();
-
     try {
-      // Use browser TTS if available
-      if ('speechSynthesis' in window) {
+      if (Platform.OS === 'web' && 'speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(text);
-        
         const {
           rate = 0.8,
           pitch = 1.0,
           voice = 'en-US',
           language = 'en-US'
         } = options;
-
         utterance.rate = rate;
         utterance.pitch = pitch;
         utterance.lang = language;
-        
-        // Try to set voice if available
         const voices = speechSynthesis.getVoices();
         const selectedVoice = voices.find(v => v.lang.includes(language));
         if (selectedVoice) {
           utterance.voice = selectedVoice;
         }
-
         utterance.onend = () => {
           console.log('TTS playback completed');
         };
-
         utterance.onerror = (event) => {
           console.error('TTS error:', event);
         };
-
         speechSynthesis.speak(utterance);
         return true;
       } else {
-        console.log('Speech synthesis not available');
-        return false;
+        // Use expo-speech for native
+        const {
+          rate = 0.8,
+          pitch = 1.0,
+          voice = undefined,
+          language = 'en-US'
+        } = options;
+        Speech.speak(text, {
+          rate,
+          pitch,
+          voice,
+          language,
+          onDone: () => console.log('TTS playback completed'),
+          onError: (error) => console.error('TTS error:', error),
+        });
+        return true;
       }
     } catch (error) {
       console.error('TTS playback failed:', error);
@@ -113,10 +79,7 @@ class AudioPronunciationService {
   }
 
   async playPhoneme(phoneme: string, options: PronunciationOptions = {}) {
-    // Remove IPA brackets for TTS
     const cleanPhoneme = phoneme.replace(/[\/\[\]]/g, '');
-    
-    // Map common phonemes to example words for better pronunciation
     const phonemeMap: Record<string, string> = {
       'æ': 'cat',
       'eɪ': 'day',
@@ -145,7 +108,6 @@ class AudioPronunciationService {
       'w': 'we',
       'dʒ': 'jump',
     };
-
     const exampleWord = phonemeMap[cleanPhoneme] || cleanPhoneme;
     return this.playWord(exampleWord, options);
   }
@@ -156,12 +118,9 @@ class AudioPronunciationService {
 
   async playPhonemeSequence(phonemes: string[], options: PronunciationOptions = {}) {
     await this.initialize();
-
     for (let i = 0; i < phonemes.length; i++) {
       const phoneme = phonemes[i];
       await this.playPhoneme(phoneme, options);
-      
-      // Add a small pause between phonemes
       if (i < phonemes.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
@@ -170,27 +129,15 @@ class AudioPronunciationService {
 
   async stop() {
     try {
-      if (this.sound) {
-        await this.sound.stopAsync();
-        await this.sound.unloadAsync();
-        this.sound = null;
-      }
       if ('speechSynthesis' in window) {
         speechSynthesis.cancel();
       }
+      Speech.stop();
     } catch (error) {
       console.error('Error stopping audio:', error);
     }
   }
 
-  private cleanup() {
-    if (this.sound) {
-      this.sound.unloadAsync();
-      this.sound = null;
-    }
-  }
-
-  // Get available voices for TTS
   async getAvailableVoices(): Promise<string[]> {
     try {
       if ('speechSynthesis' in window) {
@@ -204,7 +151,6 @@ class AudioPronunciationService {
     }
   }
 
-  // Check if audio is supported
   async isAudioSupported(): Promise<boolean> {
     try {
       await this.initialize();
@@ -214,38 +160,13 @@ class AudioPronunciationService {
     }
   }
 
-  // Preload audio for better performance
-  async preloadAudio(word: string): Promise<boolean> {
-    try {
-      const audioUrl = `https://api.dictionaryapi.dev/media/pronunciations/en/${word.toLowerCase()}.mp3`;
-      
-      if (this.sound) {
-        await this.sound.unloadAsync();
-      }
-
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: audioUrl },
-        { shouldPlay: false }
-      );
-      
-      this.sound = sound;
-      return true;
-    } catch (error) {
-      console.log('Preload failed, will use TTS fallback');
-      return false;
-    }
-  }
-
-  // Get pronunciation data from dictionary API
   async getPronunciationData(word: string) {
     try {
       const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
       const data = await response.json();
-      
       if (Array.isArray(data) && data.length > 0) {
         const entry = data[0];
         const phonetics = entry.phonetics || [];
-        
         return {
           word: entry.word,
           phonetic: entry.phonetic,
@@ -256,7 +177,6 @@ class AudioPronunciationService {
           meanings: entry.meanings,
         };
       }
-      
       return null;
     } catch (error) {
       console.error('Error fetching pronunciation data:', error);
@@ -265,5 +185,4 @@ class AudioPronunciationService {
   }
 }
 
-// Export singleton instance
 export const audioPronunciationService = new AudioPronunciationService(); 

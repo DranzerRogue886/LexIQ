@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Keyboard } from 'react-native';
 import { Text, Card, useTheme, Button, TextInput, IconButton, Portal, Modal } from 'react-native-paper';
 import PhonicsExplorer from '../components/PhonicsExplorer';
 import PhonicsGames from '../components/PhonicsGames';
@@ -17,6 +17,9 @@ const PhonicsScreen: React.FC = () => {
 
   const handleWordAnalysis = () => {
     if (selectedWord.trim()) {
+      // Dismiss keyboard
+      Keyboard.dismiss();
+      
       setShowExplorer(true);
       setShowGames(false);
       setShowSoundboard(false);
@@ -175,6 +178,8 @@ const PhonicsScreen: React.FC = () => {
                 onChangeText={setSelectedWord}
                 mode="outlined"
                 style={styles.textInput}
+                onSubmitEditing={handleWordAnalysis}
+                returnKeyType="search"
                 right={
                   <TextInput.Icon
                     icon="magnify"
@@ -188,6 +193,7 @@ const PhonicsScreen: React.FC = () => {
                 onPress={handleWordAnalysis}
                 disabled={!selectedWord.trim()}
                 style={styles.analyzeButton}
+                icon="text-search"
               >
                 Analyze Word
               </Button>
