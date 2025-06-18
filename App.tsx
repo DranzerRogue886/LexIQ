@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Provider as PaperProvider } from 'react-native-paper';
+import { PaperProvider } from 'react-native-paper';
 import { AuthProvider } from './src/contexts/AuthContext';
-import { lightTheme, darkTheme } from './src/theme/theme';
-import { useColorScheme } from 'react-native';
+import { lightTheme } from './src/theme/theme';
 
-// Import screens
+// Screens
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import RSVPScreen from './src/screens/RSVPScreen';
@@ -26,23 +25,15 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  const colorScheme = useColorScheme();
-  const theme = colorScheme === 'dark' ? darkTheme : lightTheme;
-
   return (
-    <PaperProvider theme={theme}>
+    <PaperProvider theme={lightTheme}>
       <AuthProvider>
         <NavigationContainer>
           <Stack.Navigator
             initialRouteName="Login"
             screenOptions={{
-              headerStyle: {
-                backgroundColor: theme.colors.primary,
-              },
-              headerTintColor: theme.colors.background,
-              headerTitleStyle: {
-                fontWeight: 'bold',
-              },
+              headerShown: false,
+              animation: 'fade',
             }}
           >
             <Stack.Screen name="Login" component={LoginScreen} />

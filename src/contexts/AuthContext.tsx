@@ -35,6 +35,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loadUser = useCallback(async () => {
+    if (!mounted) return;
+    
     try {
       const userJson = await AsyncStorage.getItem('user');
       if (userJson && mounted) {
@@ -57,11 +59,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [loadUser]);
 
   const signIn = async (email: string, password: string) => {
+    if (!mounted) return;
+    
     try {
       setLoading(true);
       setError(null);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Simulate API call with a shorter timeout
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Invalid email format');
+      }
+
+      // Validate password
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
       
       const mockUser = {
         id: '1',
@@ -79,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Sign in error:', err);
       if (mounted) {
-        setError('Failed to sign in');
+        setError(err instanceof Error ? err.message : 'Failed to sign in. Please try again.');
       }
     } finally {
       if (mounted) {
@@ -89,11 +105,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUp = async (email: string, password: string, username: string) => {
+    if (!mounted) return;
+    
     try {
       setLoading(true);
       setError(null);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Simulate API call with a shorter timeout
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Invalid email format');
+      }
+
+      // Validate password
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+
+      // Validate username
+      if (!username || username.length < 3) {
+        throw new Error('Username must be at least 3 characters long');
+      }
       
       const mockUser = {
         id: '1',
@@ -111,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Sign up error:', err);
       if (mounted) {
-        setError('Failed to sign up');
+        setError(err instanceof Error ? err.message : 'Failed to sign up. Please try again.');
       }
     } finally {
       if (mounted) {
@@ -121,6 +156,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    if (!mounted) return;
+    
     try {
       setLoading(true);
       setError(null);
@@ -141,8 +178,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const value = {
+    user,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+    error,
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, error }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
