@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "LexIQ",
+    "slug": "lexiq",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.lexiq"
+    },
+    "android": {
+      "package": "com.yourcompany.lexiq"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "sdkVersion": "53.0.0"
+  }
+} 
