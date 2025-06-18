@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from 'react-native-paper';
 
 interface RSVPReaderProps {
   text: string;
-  wpm: number;
-  onComplete: () => void;
+  speed: number; // milliseconds per word
+  onComplete: (words: string[]) => void;
+  onWordSelect?: (word: string, position: { x: number; y: number }) => void;
 }
 
 const sampleTexts = {
@@ -14,61 +15,83 @@ const sampleTexts = {
   hard: "The cognitive neuroscience of reading comprehension involves complex neural networks that process visual information, decode linguistic patterns, and integrate semantic meaning. This sophisticated system enables humans to transform abstract symbols into meaningful concepts."
 };
 
-export const RSVPReader: React.FC<RSVPReaderProps> = ({ text, wpm, onComplete }) => {
+export const RSVPReader: React.FC<RSVPReaderProps> = ({ text, speed, onComplete, onWordSelect }) => {
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const words = text.split(/\s+/);
   const theme = useTheme();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
-  const getDelay = (word: string) => {
-    const baseDelay = (60 / wpm) * 1000;
-    if (word.match(/[.,!?]/)) {
-      return baseDelay * 3;
-    }
-    if (word.match(/[,;]/)) {
-      return baseDelay * 1.5;
-    }
-    return baseDelay;
-  };
+  // Memoize words array to prevent unnecessary splits
+  const words = useMemo(() => text.split(/\s+/), [text]);
 
   useEffect(() => {
-    if (isPlaying) {
-      const processWord = () => {
-        if (currentWordIndex < words.length) {
-          const delay = getDelay(words[currentWordIndex]);
-          timerRef.current = setTimeout(() => {
-            setCurrentWordIndex(prev => prev + 1);
-          }, delay);
-        } else {
-          setIsPlaying(false);
-          onComplete();
-        }
-      };
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
-      processWord();
-    }
+  useEffect(() => {
+    if (!isPlaying || !isMountedRef.current) return;
+
+    const processWord = () => {
+      if (currentWordIndex < words.length) {
+        // Use consistent speed for all words - no pausing on punctuation
+        timerRef.current = setTimeout(() => {
+          if (isMountedRef.current) {
+            setCurrentWordIndex(prev => prev + 1);
+          }
+        }, speed);
+      } else {
+        if (isMountedRef.current) {
+          setIsPlaying(false);
+          onComplete(words);
+        }
+      }
+    };
+
+    processWord();
 
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
     };
-  }, [currentWordIndex, isPlaying, words, wpm]);
+  }, [currentWordIndex, isPlaying, words, speed, onComplete]);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (currentWordIndex >= words.length) {
       setCurrentWordIndex(0);
     }
-    setIsPlaying(!isPlaying);
-  };
+    setIsPlaying(prev => !prev);
+  }, [currentWordIndex, words.length]);
+
+  const handleWordPress = useCallback((event: any) => {
+    if (onWordSelect) {
+      const { pageX, pageY } = event.nativeEvent;
+      onWordSelect(words[currentWordIndex], { x: pageX, y: pageY });
+    }
+  }, [onWordSelect, words, currentWordIndex]);
+
+  const currentWord = useMemo(() => words[currentWordIndex], [words, currentWordIndex]);
+  const progress = useMemo(() => `${currentWordIndex + 1} / ${words.length}`, [currentWordIndex, words.length]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.wordContainer}>
-        <Text style={[styles.word, { color: theme.colors.onSurface }]}>
-          {words[currentWordIndex]}
-        </Text>
+        <TouchableOpacity
+          onPress={handleWordPress}
+          disabled={!onWordSelect}
+          style={styles.wordTouchable}
+        >
+          <Text style={[styles.word, { color: theme.colors.onSurface }]}>
+            {currentWord}
+          </Text>
+        </TouchableOpacity>
       </View>
       <TouchableOpacity
         style={[styles.button, { backgroundColor: theme.colors.primary }]}
@@ -79,7 +102,7 @@ export const RSVPReader: React.FC<RSVPReaderProps> = ({ text, wpm, onComplete })
         </Text>
       </TouchableOpacity>
       <Text style={[styles.progress, { color: theme.colors.onSurface }]}>
-        {currentWordIndex + 1} / {words.length}
+        {progress}
       </Text>
     </View>
   );
@@ -96,6 +119,9 @@ const styles = StyleSheet.create({
     height: 100,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  wordTouchable: {
+    padding: 10,
   },
   word: {
     fontSize: 32,

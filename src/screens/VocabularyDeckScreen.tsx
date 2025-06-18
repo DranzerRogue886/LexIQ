@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Text, useTheme, IconButton, Searchbar, Menu } from 'react-native-paper';
 import { useVocabulary } from '../contexts/VocabularyContext';
@@ -9,21 +9,46 @@ type Props = NativeStackScreenProps<RootStackParamList, 'VocabularyDeck'>;
 
 const VocabularyDeckScreen: React.FC<Props> = ({ navigation }) => {
   const theme = useTheme();
-  const { deck, removeFromDeck, updateReviewStatus } = useVocabulary();
+  const { vocabulary, removeWord, markWordAsReviewed } = useVocabulary();
   const [searchQuery, setSearchQuery] = useState('');
   const [menuVisible, setMenuVisible] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'review'>('date');
 
-  const filteredDeck = deck
-    .filter(word => word.word.toLowerCase().includes(searchQuery.toLowerCase()))
-    .sort((a, b) => {
-      if (sortBy === 'date') {
-        return b.savedAt - a.savedAt;
-      }
-      return (b.reviewCount || 0) - (a.reviewCount || 0);
-    });
+  const filteredDeck = useMemo(() => 
+    vocabulary
+      .filter(word => word.word.toLowerCase().includes(searchQuery.toLowerCase()))
+      .sort((a, b) => {
+        if (sortBy === 'date') {
+          return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
+        }
+        return (b.reviewCount || 0) - (a.reviewCount || 0);
+      }),
+    [vocabulary, searchQuery, sortBy]
+  );
 
-  const renderWordItem = ({ item }: { item: typeof deck[0] }) => {
+  const handleMenuOpen = useCallback((word: string) => {
+    setMenuVisible(word);
+  }, []);
+
+  const handleMenuClose = useCallback(() => {
+    setMenuVisible(null);
+  }, []);
+
+  const handleReview = useCallback((word: string) => {
+    markWordAsReviewed(word);
+    setMenuVisible(null);
+  }, [markWordAsReviewed]);
+
+  const handleRemove = useCallback((word: string) => {
+    removeWord(word);
+    setMenuVisible(null);
+  }, [removeWord]);
+
+  const handleSortToggle = useCallback(() => {
+    setSortBy(prev => prev === 'date' ? 'review' : 'date');
+  }, []);
+
+  const renderWordItem = useCallback(({ item }: { item: typeof vocabulary[0] }) => {
     const menuOpen = menuVisible === item.word;
 
     return (
@@ -39,26 +64,20 @@ const VocabularyDeckScreen: React.FC<Props> = ({ navigation }) => {
           </View>
           <Menu
             visible={menuOpen}
-            onDismiss={() => setMenuVisible(null)}
+            onDismiss={handleMenuClose}
             anchor={
               <IconButton
                 icon="dots-vertical"
-                onPress={() => setMenuVisible(item.word)}
+                onPress={() => handleMenuOpen(item.word)}
               />
             }
           >
             <Menu.Item
-              onPress={() => {
-                updateReviewStatus(item.word);
-                setMenuVisible(null);
-              }}
+              onPress={() => handleReview(item.word)}
               title="Mark as Reviewed"
             />
             <Menu.Item
-              onPress={() => {
-                removeFromDeck(item.word);
-                setMenuVisible(null);
-              }}
+              onPress={() => handleRemove(item.word)}
               title="Remove from Deck"
             />
           </Menu>
@@ -84,7 +103,7 @@ const VocabularyDeckScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={styles.stats}>
           <Text style={{ color: theme.colors.onSurface }}>
-            Added: {new Date(item.savedAt).toLocaleDateString()}
+            Added: {new Date(item.dateAdded).toLocaleDateString()}
           </Text>
           <Text style={{ color: theme.colors.onSurface }}>
             Reviews: {item.reviewCount || 0}
@@ -92,7 +111,15 @@ const VocabularyDeckScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
     );
-  };
+  }, [theme, menuVisible, handleMenuClose, handleMenuOpen, handleReview, handleRemove]);
+
+  const keyExtractor = useCallback((item: typeof vocabulary[0]) => item.word, []);
+
+  const ListEmptyComponent = useMemo(() => (
+    <Text style={[styles.emptyText, { color: theme.colors.onSurface }]}>
+      No words in your deck yet
+    </Text>
+  ), [theme]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -105,20 +132,20 @@ const VocabularyDeckScreen: React.FC<Props> = ({ navigation }) => {
         />
         <IconButton
           icon={sortBy === 'date' ? 'clock-outline' : 'star-outline'}
-          onPress={() => setSortBy(sortBy === 'date' ? 'review' : 'date')}
+          onPress={handleSortToggle}
         />
       </View>
 
       <FlatList
         data={filteredDeck}
         renderItem={renderWordItem}
-        keyExtractor={item => item.word}
+        keyExtractor={keyExtractor}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <Text style={[styles.emptyText, { color: theme.colors.onSurface }]}>
-            No words in your deck yet
-          </Text>
-        }
+        ListEmptyComponent={ListEmptyComponent}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={10}
       />
     </View>
   );

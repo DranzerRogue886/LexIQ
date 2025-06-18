@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, Platform } from 'react-native';
-import { Card, Title, Paragraph, Button, useTheme, Text } from 'react-native-paper';
+import { Button, useTheme, Text } from 'react-native-paper';
 import { useAuth } from '../contexts/AuthContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TouchableOpacity } from 'react-native';
 import { IconButton } from 'react-native-paper';
+// import AnimatedGradientBackground from '../components/AnimatedGradientBackground';
 
 type RootStackParamList = {
   Home: undefined;
@@ -14,15 +15,17 @@ type RootStackParamList = {
   WordChunking: undefined;
   Profile: undefined;
   VocabularyDeck: undefined;
+  WPMTest: undefined;
+  Phonics: undefined;
 };
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const isSmallDevice = width < 375;
 const isTablet = width >= 768;
 
-const FancyTitle = () => {
+const FancyTitle = React.memo(() => {
   const theme = useTheme();
   return (
     <View style={styles.titleContainer}>
@@ -39,129 +42,128 @@ const FancyTitle = () => {
       </Text>
     </View>
   );
-};
+});
+
+const FeatureCard = React.memo(({ 
+  title, 
+  description, 
+  icon, 
+  onPress, 
+  color 
+}: { 
+  title: string;
+  description: string;
+  icon: string;
+  onPress: () => void;
+  color: string;
+}) => (
+  <TouchableOpacity
+    style={[styles.featureCard, { backgroundColor: color }]}
+    onPress={onPress}
+  >
+    <IconButton icon={icon} size={32} iconColor="white" />
+    <Text style={[styles.featureTitle, { color: 'white' }]}>{title}</Text>
+    <Text style={[styles.featureDescription, { color: 'white' }]}>{description}</Text>
+  </TouchableOpacity>
+));
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
   const theme = useTheme();
 
-  const readingTechniques = [
+  const navigateTo = useCallback((screen: keyof RootStackParamList) => {
+    navigation.navigate(screen);
+  }, [navigation]);
+
+  const features = useMemo(() => [
     {
-      title: 'RSVP Reader',
-      description: 'Rapid Serial Visual Presentation eliminates subvocalization by presenting words one at a time.',
-      screen: 'RSVP',
+      title: 'WPM Test',
+      description: 'Measure your reading speed and comprehension',
+      icon: 'speedometer',
+      screen: 'WPMTest' as const,
+      color: theme.colors.error,
+    },
+    {
+      title: 'RSVP Reading',
+      description: 'Speed reading with rapid serial visual presentation',
+      icon: 'lightning-bolt',
+      screen: 'RSVP' as const,
+      color: theme.colors.primary,
     },
     {
       title: 'Guided Pacing',
-      description: 'Reduce inefficient eye movement with a guided visual cue that moves through the text.',
-      screen: 'GuidedPacing',
+      description: 'Follow a moving guide to maintain reading pace',
+      icon: 'cursor-move',
+      screen: 'GuidedPacing' as const,
+      color: theme.colors.secondary,
     },
     {
       title: 'Word Chunking',
-      description: 'Expand your visual span by reading multiple words per eye fixation.',
-      screen: 'WordChunking',
+      description: 'Read text in meaningful word groups',
+      icon: 'text-box-multiple',
+      screen: 'WordChunking' as const,
+      color: theme.colors.tertiary,
     },
-  ];
+    {
+      title: 'Vocabulary Deck',
+      description: 'Review and practice saved vocabulary',
+      icon: 'book-open-variant',
+      screen: 'VocabularyDeck' as const,
+      color: theme.colors.primary,
+    },
+    {
+      title: 'Phonics',
+      description: 'Master sound-letter relationships and pronunciation',
+      icon: 'music-note',
+      screen: 'Phonics' as const,
+      color: theme.colors.error,
+    },
+  ], [theme.colors]);
 
-  const renderFeatureCard = (
-    title: string,
-    description: string,
-    icon: string,
-    onPress: () => void,
-    color: string
-  ) => (
-    <TouchableOpacity
-      style={[styles.featureCard, { backgroundColor: color }]}
-      onPress={onPress}
-    >
-      <IconButton icon={icon} size={32} iconColor="white" />
-      <Text style={styles.featureTitle}>{title}</Text>
-      <Text style={styles.featureDescription}>{description}</Text>
-    </TouchableOpacity>
-  );
+  const welcomeText = useMemo(() => (
+    <Text style={[styles.welcome, { color: theme.colors.primary }]}>
+      Welcome, {user?.username}!
+    </Text>
+  ), [theme.colors.primary, user?.username]);
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      <FancyTitle />
-      
-      <Title style={[styles.welcome, { color: theme.colors.primary }]}>
-        Welcome, {user?.username}!
-      </Title>
-
-      <View style={styles.cardsContainer}>
-        {readingTechniques.map((technique, index) => (
-          <Card
-            key={index}
-            style={[styles.card, { backgroundColor: theme.colors.surface }]}
-            onPress={() => navigation.navigate(technique.screen as keyof RootStackParamList)}
-          >
-            <Card.Content>
-              <Title style={{ color: theme.colors.primary }}>{technique.title}</Title>
-              <Paragraph style={{ color: theme.colors.onSurface }}>
-                {technique.description}
-              </Paragraph>
-            </Card.Content>
-            <Card.Actions>
-              <Button
-                mode="contained"
-                onPress={() => navigation.navigate(technique.screen as keyof RootStackParamList)}
-                style={{ backgroundColor: theme.colors.primary }}
-              >
-                Start Reading
-              </Button>
-            </Card.Actions>
-          </Card>
-        ))}
-      </View>
-
-      <View style={styles.featuresGrid}>
-        {renderFeatureCard(
-          'RSVP Reading',
-          'Speed reading with rapid serial visual presentation',
-          'lightning-bolt',
-          () => navigation.navigate('RSVP'),
-          theme.colors.primary
-        )}
-        {renderFeatureCard(
-          'Guided Pacing',
-          'Follow a moving guide to maintain reading pace',
-          'cursor-move',
-          () => navigation.navigate('GuidedPacing'),
-          theme.colors.secondary
-        )}
-        {renderFeatureCard(
-          'Word Chunking',
-          'Read text in meaningful word groups',
-          'text-box-multiple',
-          () => navigation.navigate('WordChunking'),
-          theme.colors.tertiary
-        )}
-        {renderFeatureCard(
-          'Vocabulary Deck',
-          'Review and practice saved vocabulary',
-          'book-open-variant',
-          () => navigation.navigate('VocabularyDeck'),
-          theme.colors.primary
-        )}
-      </View>
-
-      <Button
-        mode="outlined"
-        onPress={() => navigation.navigate('Profile')}
-        style={styles.profileButton}
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}> 
+      {/* <AnimatedGradientBackground /> */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
       >
-        View Profile & Progress
-      </Button>
-    </ScrollView>
+        <FancyTitle />
+        {welcomeText}
+
+        <View style={styles.featuresGrid}>
+          {features.map((feature) => (
+            <FeatureCard
+              key={feature.screen}
+              {...feature}
+              onPress={() => navigateTo(feature.screen)}
+            />
+          ))}
+        </View>
+
+        <Button
+          mode="outlined"
+          onPress={() => navigateTo('Profile')}
+          style={styles.profileButton}
+        >
+          View Profile & Progress
+        </Button>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollView: {
     flex: 1,
   },
   content: {
@@ -197,16 +199,7 @@ const styles = StyleSheet.create({
     fontSize: isSmallDevice ? 20 : 24,
     marginBottom: 24,
     textAlign: 'center',
-  },
-  cardsContainer: {
-    width: '100%',
-    maxWidth: isTablet ? 600 : undefined,
-    alignSelf: 'center',
-  },
-  card: {
-    marginBottom: 16,
-    elevation: 4,
-    width: '100%',
+    fontWeight: 'bold',
   },
   profileButton: {
     marginTop: 16,
@@ -219,23 +212,31 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     marginBottom: 16,
+    gap: 12,
   },
   featureCard: {
     width: '45%',
-    margin: 5,
-    padding: 10,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   featureTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginTop: 5,
+    marginTop: 8,
+    textAlign: 'center',
   },
   featureDescription: {
-    fontSize: 14,
+    fontSize: 12,
     textAlign: 'center',
+    marginTop: 4,
+    opacity: 0.9,
   },
 });
 
-export default HomeScreen; 
+export default React.memo(HomeScreen); 

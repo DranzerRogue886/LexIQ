@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions, Platform } from 'react-native';
 import { useTheme, Button } from 'react-native-paper';
 
@@ -17,13 +17,17 @@ const sampleTexts = {
 export const GuidedPacer: React.FC<GuidedPacerProps> = ({ text, wpm, onComplete }) => {
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const words = text.split(/\s+/);
   const theme = useTheme();
   const scrollViewRef = useRef<ScrollView>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const wordRefs = useRef<View[]>([]);
+  const isMountedRef = useRef(true);
 
-  const getDelay = (word: string) => {
+  // Memoize words array to prevent unnecessary splits
+  const words = useMemo(() => text.split(/\s+/), [text]);
+
+  // Memoize delay calculation
+  const getDelay = useCallback((word: string) => {
     const baseDelay = (60 / wpm) * 1000;
     if (word.match(/[.,!?]/)) {
       return baseDelay * 3;
@@ -32,68 +36,89 @@ export const GuidedPacer: React.FC<GuidedPacerProps> = ({ text, wpm, onComplete 
       return baseDelay * 1.5;
     }
     return baseDelay;
-  };
+  }, [wpm]);
 
   useEffect(() => {
-    if (isPlaying) {
-      const processWord = () => {
-        if (currentWordIndex < words.length) {
-          const delay = getDelay(words[currentWordIndex]);
-          timerRef.current = setTimeout(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isPlaying || !isMountedRef.current) return;
+
+    const processWord = () => {
+      if (currentWordIndex < words.length) {
+        const delay = getDelay(words[currentWordIndex]);
+        timerRef.current = setTimeout(() => {
+          if (isMountedRef.current) {
             setCurrentWordIndex(prev => prev + 1);
             if (wordRefs.current[currentWordIndex + 1]) {
               wordRefs.current[currentWordIndex + 1].measureLayout(
                 wordRefs.current[0],
                 (x, y) => {
-                  scrollViewRef.current?.scrollTo({ x: 0, y: y - 100, animated: true });
+                  if (isMountedRef.current && scrollViewRef.current) {
+                    scrollViewRef.current.scrollTo({ x: 0, y: y - 100, animated: true });
+                  }
                 },
                 () => {}
               );
             }
-          }, delay);
-        } else {
+          }
+        }, delay);
+      } else {
+        if (isMountedRef.current) {
           setIsPlaying(false);
           onComplete();
         }
-      };
+      }
+    };
 
-      processWord();
-    }
+    processWord();
 
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
     };
-  }, [currentWordIndex, isPlaying, words, wpm]);
+  }, [currentWordIndex, isPlaying, words, getDelay, onComplete]);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (currentWordIndex >= words.length) {
       setCurrentWordIndex(0);
     }
-    setIsPlaying(!isPlaying);
-  };
+    setIsPlaying(prev => !prev);
+  }, [currentWordIndex, words.length]);
 
-  // Group words into lines for paragraph display
-  const lines: string[][] = [];
-  let currentLine: string[] = [];
-  let currentLineWidth = 0;
-  const maxWidth = Dimensions.get('window').width - 40; // Account for padding
+  // Memoize lines calculation
+  const lines = useMemo(() => {
+    const result: string[][] = [];
+    let currentLine: string[] = [];
+    let currentLineWidth = 0;
+    const maxWidth = Dimensions.get('window').width - 40;
 
-  words.forEach((word, index) => {
-    const wordWidth = word.length * 12; // Approximate width based on character count
-    if (currentLineWidth + wordWidth > maxWidth) {
-      lines.push(currentLine);
-      currentLine = [word];
-      currentLineWidth = wordWidth;
-    } else {
-      currentLine.push(word);
-      currentLineWidth += wordWidth;
+    words.forEach((word) => {
+      const wordWidth = word.length * 12;
+      if (currentLineWidth + wordWidth > maxWidth) {
+        result.push(currentLine);
+        currentLine = [word];
+        currentLineWidth = wordWidth;
+      } else {
+        currentLine.push(word);
+        currentLineWidth += wordWidth;
+      }
+    });
+    if (currentLine.length > 0) {
+      result.push(currentLine);
     }
-  });
-  if (currentLine.length > 0) {
-    lines.push(currentLine);
-  }
+    return result;
+  }, [words]);
+
+  const progress = useMemo(() => `${currentWordIndex + 1} / ${words.length}`, [currentWordIndex, words.length]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -105,8 +130,8 @@ export const GuidedPacer: React.FC<GuidedPacerProps> = ({ text, wpm, onComplete 
         >
           {isPlaying ? 'Pause' : 'Start'}
         </Button>
-        <Text style={[styles.progress, { color: '#000000' }]}>
-          {currentWordIndex + 1} / {words.length}
+        <Text style={[styles.progress, { color: theme.colors.onSurface }]}>
+          {progress}
         </Text>
       </View>
       <ScrollView
@@ -126,7 +151,7 @@ export const GuidedPacer: React.FC<GuidedPacerProps> = ({ text, wpm, onComplete 
                   }}
                   style={[
                     styles.word,
-                    { color: '#000000' },
+                    { color: theme.colors.onSurface },
                     currentWordIndex === globalIndex && { 
                       color: theme.colors.primary,
                       fontWeight: 'bold'

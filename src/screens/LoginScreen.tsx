@@ -19,12 +19,10 @@ const LoginScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Clear error message when switching between sign in and sign up
   useEffect(() => {
     setErrorMessage('');
   }, [isSignUp]);
 
-  // Update error message when auth error changes
   useEffect(() => {
     if (authError) {
       setErrorMessage(authError);
@@ -70,7 +68,6 @@ const LoginScreen = () => {
         await signIn(email, password);
       }
       
-      // Check auth error instead of local error message
       if (!authError) {
         navigation.replace('Home');
       }
@@ -80,84 +77,96 @@ const LoginScreen = () => {
     }
   };
 
+  const handleSwitchMode = useCallback(() => {
+    setIsSignUp(!isSignUp);
+    setErrorMessage('');
+  }, [isSignUp]);
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.formContainer}>
             <FancyTitle />
             
-            <View style={styles.formContainer}>
-              <Text style={[styles.title, { color: theme.colors.primary }]}>
-                {isSignUp ? 'Create Account' : 'Welcome Back'}
-              </Text>
+            <Text style={[styles.title, { color: theme.colors.primary }]}>
+              {isSignUp ? 'Create Account' : 'Welcome Back'}
+            </Text>
 
-              {isSignUp && (
-                <TextInput
-                  label="Username"
-                  value={username}
-                  onChangeText={setUsername}
-                  style={styles.input}
-                  mode="outlined"
-                  autoCapitalize="none"
-                />
-              )}
-
+            {isSignUp && (
               <TextInput
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
+                label="Username"
+                value={username}
+                onChangeText={setUsername}
                 style={styles.input}
                 mode="outlined"
-                keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                activeOutlineColor={theme.colors.primary}
               />
+            )}
 
-              <TextInput
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                style={styles.input}
-                mode="outlined"
-                secureTextEntry
-              />
+            <TextInput
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              style={styles.input}
+              mode="outlined"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              activeOutlineColor={theme.colors.primary}
+            />
 
-              {errorMessage && (
-                <Text style={[styles.error, { color: theme.colors.error }]}>
-                  {errorMessage}
-                </Text>
-              )}
+            <TextInput
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              style={styles.input}
+              mode="outlined"
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              activeOutlineColor={theme.colors.primary}
+            />
 
-              <Button
-                mode="contained"
-                onPress={handleSubmit}
-                style={styles.button}
-                loading={loading}
-                disabled={loading}
-              >
-                {isSignUp ? 'Sign Up' : 'Sign In'}
-              </Button>
+            {errorMessage && (
+              <Text style={[styles.error, { color: theme.colors.error }]}>
+                {errorMessage}
+              </Text>
+            )}
 
-              <Button
-                mode="text"
-                onPress={() => setIsSignUp(!isSignUp)}
-                style={styles.switchButton}
-              >
-                {isSignUp
-                  ? 'Already have an account? Sign In'
-                  : "Don't have an account? Sign Up"}
-              </Button>
-            </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
+            <Button
+              mode="contained"
+              onPress={handleSubmit}
+              style={styles.button}
+              loading={loading}
+              disabled={loading}
+              buttonColor={theme.colors.primary}
+            >
+              {isSignUp ? 'Sign Up' : 'Sign In'}
+            </Button>
+
+            <Button
+              mode="text"
+              onPress={handleSwitchMode}
+              style={styles.switchButton}
+              textColor={theme.colors.primary}
+            >
+              {isSignUp
+                ? 'Already have an account? Sign In'
+                : "Don't have an account? Sign Up"}
+            </Button>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

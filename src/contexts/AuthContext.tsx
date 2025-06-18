@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
@@ -21,63 +21,74 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'user';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(true);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    setMounted(true);
+    isMountedRef.current = true;
     return () => {
-      setMounted(false);
+      isMountedRef.current = false;
     };
   }, []);
 
   const loadUser = useCallback(async () => {
-    if (!mounted) return;
+    if (!isMountedRef.current) return;
     
     try {
-      const userJson = await AsyncStorage.getItem('user');
-      if (userJson && mounted) {
+      const userJson = await AsyncStorage.getItem(STORAGE_KEY);
+      if (userJson && isMountedRef.current) {
         setUser(JSON.parse(userJson));
       }
     } catch (err) {
       console.error('Error loading user:', err);
-      if (mounted) {
+      if (isMountedRef.current) {
         setError('Failed to load user data');
       }
     } finally {
-      if (mounted) {
+      if (isMountedRef.current) {
         setLoading(false);
       }
     }
-  }, [mounted]);
+  }, []);
 
   useEffect(() => {
     loadUser();
   }, [loadUser]);
 
-  const signIn = async (email: string, password: string) => {
-    if (!mounted) return;
+  const updateState = useCallback((updates: Partial<{ user: User | null; loading: boolean; error: string | null }>) => {
+    if (!isMountedRef.current) return;
+    
+    if ('user' in updates) setUser(updates.user!);
+    if ('loading' in updates) setLoading(updates.loading!);
+    if ('error' in updates) setError(updates.error!);
+  }, []);
+
+  const validateCredentials = useCallback((email: string, password: string, username?: string) => {
+    if (!EMAIL_REGEX.test(email)) {
+      throw new Error('Invalid email format');
+    }
+
+    if (password.length < 6) {
+      throw new Error('Password must be at least 6 characters long');
+    }
+
+    if (username && username.length < 3) {
+      throw new Error('Username must be at least 3 characters long');
+    }
+  }, []);
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    if (!isMountedRef.current) return;
     
     try {
-      // Batch state updates
-      if (mounted) {
-        setLoading(true);
-        setError(null);
-      }
-      
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        throw new Error('Invalid email format');
-      }
-
-      // Validate password
-      if (password.length < 6) {
-        throw new Error('Password must be at least 6 characters long');
-      }
+      updateState({ loading: true, error: null });
+      validateCredentials(email, password);
       
       const mockUser = {
         id: '1',
@@ -87,48 +98,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         comprehensionScores: [],
       };
       
-      // Store user data first
-      await AsyncStorage.setItem('user', JSON.stringify(mockUser));
-      
-      // Batch state updates
-      if (mounted) {
-        setUser(mockUser);
-        setLoading(false);
-      }
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(mockUser));
+      updateState({ user: mockUser, loading: false });
     } catch (err) {
       console.error('Sign in error:', err);
-      if (mounted) {
-        setError(err instanceof Error ? err.message : 'Failed to sign in. Please try again.');
-        setLoading(false);
-      }
+      updateState({
+        error: err instanceof Error ? err.message : 'Failed to sign in. Please try again.',
+        loading: false
+      });
     }
-  };
+  }, [updateState, validateCredentials]);
 
-  const signUp = async (email: string, password: string, username: string) => {
-    if (!mounted) return;
+  const signUp = useCallback(async (email: string, password: string, username: string) => {
+    if (!isMountedRef.current) return;
     
     try {
-      // Batch state updates
-      if (mounted) {
-        setLoading(true);
-        setError(null);
-      }
-      
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        throw new Error('Invalid email format');
-      }
-
-      // Validate password
-      if (password.length < 6) {
-        throw new Error('Password must be at least 6 characters long');
-      }
-
-      // Validate username
-      if (!username || username.length < 3) {
-        throw new Error('Username must be at least 3 characters long');
-      }
+      updateState({ loading: true, error: null });
+      validateCredentials(email, password, username);
       
       const mockUser = {
         id: '1',
@@ -138,58 +124,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         comprehensionScores: [],
       };
       
-      // Store user data first
-      await AsyncStorage.setItem('user', JSON.stringify(mockUser));
-      
-      // Batch state updates
-      if (mounted) {
-        setUser(mockUser);
-        setLoading(false);
-      }
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(mockUser));
+      updateState({ user: mockUser, loading: false });
     } catch (err) {
       console.error('Sign up error:', err);
-      if (mounted) {
-        setError(err instanceof Error ? err.message : 'Failed to sign up. Please try again.');
-        setLoading(false);
-      }
+      updateState({
+        error: err instanceof Error ? err.message : 'Failed to sign up. Please try again.',
+        loading: false
+      });
     }
-  };
+  }, [updateState, validateCredentials]);
 
-  const signOut = async () => {
-    if (!mounted) return;
+  const signOut = useCallback(async () => {
+    if (!isMountedRef.current) return;
     
     try {
-      // Batch state updates
-      if (mounted) {
-        setLoading(true);
-        setError(null);
-      }
-      
-      // Clear storage first
-      await AsyncStorage.removeItem('user');
-      
-      // Batch state updates
-      if (mounted) {
-        setUser(null);
-        setLoading(false);
-      }
+      updateState({ loading: true, error: null });
+      await AsyncStorage.removeItem(STORAGE_KEY);
+      updateState({ user: null, loading: false });
     } catch (err) {
       console.error('Sign out error:', err);
-      if (mounted) {
-        setError('Failed to sign out');
-        setLoading(false);
-      }
+      updateState({ error: 'Failed to sign out', loading: false });
     }
-  };
+  }, [updateState]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     loading,
     signIn,
     signUp,
     signOut,
     error,
-  };
+  }), [user, loading, signIn, signUp, signOut, error]);
 
   return (
     <AuthContext.Provider value={value}>

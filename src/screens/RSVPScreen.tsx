@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Button, SegmentedButtons, useTheme } from 'react-native-paper';
-import Slider from '@react-native-community/slider';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import { Text, Button, SegmentedButtons, useTheme, Menu, Divider } from 'react-native-paper';
 import { RSVPReader } from '../components/RSVPReader';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { VocabularyLookup } from '../components/VocabularyLookup';
 import { useVocabulary } from '../contexts/VocabularyContext';
-import { GestureResponderEvent } from 'react-native';
+import { sampleTexts, getRandomText, SampleText } from '../data/sampleTexts';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
   RSVP: undefined;
@@ -15,107 +14,213 @@ type RootStackParamList = {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RSVP'>;
 
+const { width, height } = Dimensions.get('window');
+
 const RSVPScreen: React.FC<Props> = ({ navigation }) => {
-  const [wpm, setWpm] = useState(300);
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
-  const [isReading, setIsReading] = useState(false);
-  const [selectedWord, setSelectedWord] = useState<{ word: string; position: { x: number; y: number } } | null>(null);
   const theme = useTheme();
-  const { addToDeck } = useVocabulary();
+  const { vocabulary } = useVocabulary();
+  const [speed, setSpeed] = useState(300);
+  const [speedMode, setSpeedMode] = useState<'preset' | 'custom'>('preset');
+  const [customWPM, setCustomWPM] = useState(300);
+  const [isReading, setIsReading] = useState(false);
+  const [currentText, setCurrentText] = useState<SampleText | null>(null);
+  const [selectedText, setSelectedText] = useState<string>('random');
+  const [showVocabularyLookup, setShowVocabularyLookup] = useState(false);
+  const [selectedWord, setSelectedWord] = useState('');
+  const [lookupPosition, setLookupPosition] = useState({ x: 0, y: 0 });
+  const [showCustomSpeedMenu, setShowCustomSpeedMenu] = useState(false);
 
-  const sampleTexts = {
-    easy: "The quick brown fox jumps over the lazy dog. This is a simple sentence that helps you practice reading. The words are common and easy to understand.",
-    medium: "The implementation of rapid serial visual presentation (RSVP) has revolutionized digital reading. This technique presents words sequentially at a fixed point, eliminating the need for eye movement across the page.",
-    hard: "The cognitive neuroscience of reading comprehension involves complex neural networks that process visual information, decode linguistic patterns, and integrate semantic meaning. This sophisticated system enables humans to transform abstract symbols into meaningful concepts."
+  useEffect(() => {
+    // Set a random text by default
+    setCurrentText(getRandomText());
+  }, []);
+
+  // Convert WPM to milliseconds per word
+  const wpmToMs = (wpm: number) => {
+    return (60 / wpm) * 1000;
   };
 
-  const handleComplete = () => {
-    setIsReading(false);
-    // Navigate to Word Recall game with the passage words
-    navigation.navigate('WordRecall', {
-      passageWords: sampleTexts[difficulty].split(/\s+/),
-    });
+  // Convert milliseconds per word to WPM
+  const msToWpm = (ms: number) => {
+    return Math.round(60 / (ms / 1000));
   };
 
-  const handleWordPress = (word: string, event: GestureResponderEvent) => {
-    const { pageX, pageY } = event.nativeEvent;
-    setSelectedWord({ word, position: { x: pageX, y: pageY } });
+  const handleSpeedChange = (value: string) => {
+    if (value === 'custom') {
+      setSpeedMode('custom');
+      setSpeed(wpmToMs(customWPM));
+    } else {
+      setSpeedMode('preset');
+      setSpeed(parseInt(value));
+    }
   };
 
-  const handleCloseLookup = () => {
-    setSelectedWord(null);
+  const handleCustomWPMChange = (wpm: number) => {
+    setCustomWPM(wpm);
+    setSpeed(wpmToMs(wpm));
+    setShowCustomSpeedMenu(false);
   };
 
-  const handleSaveToDeck = (wordData: any) => {
-    addToDeck(wordData);
+  const handleTextChange = (value: string) => {
+    if (value === 'random') {
+      setCurrentText(getRandomText());
+    } else {
+      const text = sampleTexts.find(t => t.id === value);
+      if (text) {
+        setCurrentText(text);
+      }
+    }
+    setSelectedText(value);
   };
 
-  if (isReading) {
+  const handleWordSelect = (word: string, position: { x: number; y: number }) => {
+    setSelectedWord(word);
+    setLookupPosition(position);
+    setShowVocabularyLookup(true);
+  };
+
+  const handleVocabularyClose = () => {
+    setShowVocabularyLookup(false);
+    setSelectedWord('');
+  };
+
+  const handleComplete = (words: string[]) => {
+    // Navigate to word recall screen with the words from the passage
+    navigation.navigate('WordRecall', { passageWords: words });
+  };
+
+  const getTextOptions = () => {
+    const options = [
+      { value: 'random', label: 'Random Text' },
+      ...sampleTexts.map(text => ({
+        value: text.id,
+        label: `${text.title} (${text.difficulty})`
+      }))
+    ];
+    return options;
+  };
+
+  const getSpeedOptions = () => {
+    const presetOptions = [
+      { value: '200', label: 'Fast' },
+      { value: '300', label: 'Normal' },
+      { value: '500', label: 'Slow' },
+    ];
+
+    if (speedMode === 'custom') {
+      presetOptions.push({ value: 'custom', label: `${customWPM} WPM` });
+    } else {
+      presetOptions.push({ value: 'custom', label: 'Custom WPM' });
+    }
+
+    return presetOptions;
+  };
+
+  if (!currentText) {
     return (
-      <RSVPReader
-        text={sampleTexts[difficulty]}
-        wpm={wpm}
-        onComplete={handleComplete}
-      />
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Text>Loading...</Text>
+      </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.title, { color: theme.colors.primary }]}>
-        RSVP Reader
-      </Text>
-
-      <View style={styles.section}>
-        <Text style={[styles.label, { color: theme.colors.onSurface }]}>
-          Reading Speed: {wpm} WPM
+      <View style={styles.controls}>
+        <Text style={[styles.title, { color: theme.colors.primary }]}>
+          RSVP Reading
         </Text>
-        <Slider
-          value={wpm}
-          onValueChange={setWpm}
-          minimumValue={100}
-          maximumValue={1000}
-          step={10}
-          style={styles.slider}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.label, { color: theme.colors.onSurface }]}>
-          Text Difficulty
+        
+        <Text style={[styles.textInfo, { color: theme.colors.onSurface }]}>
+          {currentText.title} - {currentText.category} ({currentText.difficulty})
         </Text>
+
         <SegmentedButtons
-          value={difficulty}
-          onValueChange={value => setDifficulty(value as 'easy' | 'medium' | 'hard')}
-          buttons={[
-            { value: 'easy', label: 'Easy' },
-            { value: 'medium', label: 'Medium' },
-            { value: 'hard', label: 'Hard' },
-          ]}
-          style={styles.segmentedButtons}
+          value={selectedText}
+          onValueChange={handleTextChange}
+          buttons={getTextOptions().map(option => ({
+            value: option.value,
+            label: option.label,
+          }))}
+          style={styles.textSelector}
         />
-      </View>
 
-      <View style={styles.preview}>
-        <Text style={[styles.previewText, { color: theme.colors.onSurface }]}>
-          {sampleTexts[difficulty]}
+        <View style={styles.speedContainer}>
+          <SegmentedButtons
+            value={speedMode === 'custom' ? 'custom' : speed.toString()}
+            onValueChange={handleSpeedChange}
+            buttons={getSpeedOptions().map(option => ({
+              value: option.value,
+              label: option.label,
+            }))}
+            style={styles.speedSelector}
+          />
+          
+          {speedMode === 'custom' && (
+            <Menu
+              visible={showCustomSpeedMenu}
+              onDismiss={() => setShowCustomSpeedMenu(false)}
+              anchor={
+                <Button
+                  mode="outlined"
+                  onPress={() => setShowCustomSpeedMenu(true)}
+                  style={styles.customSpeedButton}
+                >
+                  {customWPM} WPM
+                </Button>
+              }
+            >
+              {[100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800].map((wpm) => (
+                <Menu.Item
+                  key={wpm}
+                  onPress={() => handleCustomWPMChange(wpm)}
+                  title={`${wpm} WPM`}
+                  leadingIcon={customWPM === wpm ? 'check' : undefined}
+                />
+              ))}
+            </Menu>
+          )}
+        </View>
+
+        <Text style={[styles.speedInfo, { color: theme.colors.onSurfaceVariant }]}>
+          Current speed: {msToWpm(speed)} WPM ({speed}ms per word)
         </Text>
+
+        <Button
+          mode="contained"
+          onPress={() => setIsReading(!isReading)}
+          style={styles.button}
+        >
+          {isReading ? 'Stop' : 'Start Reading'}
+        </Button>
       </View>
 
-      <Button
-        mode="contained"
-        onPress={() => setIsReading(true)}
-        style={[styles.button, { backgroundColor: theme.colors.primary }]}
-      >
-        Start Reading
-      </Button>
+      <View style={styles.readerContainer}>
+        {isReading ? (
+          <RSVPReader
+            text={currentText.content}
+            speed={speed}
+            onComplete={handleComplete}
+            onWordSelect={handleWordSelect}
+          />
+        ) : (
+          <View style={styles.previewContainer}>
+            <Text style={[styles.previewText, { color: theme.colors.onSurface }]}>
+              {currentText.content.substring(0, 200)}...
+            </Text>
+            <Text style={[styles.wordCount, { color: theme.colors.onSurfaceVariant }]}>
+              {currentText.wordCount} words • {currentText.uniqueWords.length} unique words
+            </Text>
+          </View>
+        )}
+      </View>
 
-      {selectedWord && (
+      {showVocabularyLookup && (
         <VocabularyLookup
-          word={selectedWord.word}
-          position={selectedWord.position}
-          onClose={handleCloseLookup}
-          onSaveToDeck={handleSaveToDeck}
+          word={selectedWord}
+          position={lookupPosition}
+          onClose={handleVocabularyClose}
+          source="RSVP Reading"
         />
       )}
     </View>
@@ -125,49 +230,61 @@ const RSVPScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: 16,
+  },
+  controls: {
+    marginBottom: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 24,
+    marginBottom: 16,
     textAlign: 'center',
   },
-  section: {
-    marginBottom: 24,
-  },
-  label: {
+  textInfo: {
     fontSize: 16,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  textSelector: {
+    marginBottom: 16,
+  },
+  speedContainer: {
+    marginBottom: 16,
+  },
+  speedSelector: {
     marginBottom: 8,
   },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  segmentedButtons: {
+  customSpeedButton: {
     marginTop: 8,
   },
-  preview: {
-    backgroundColor: '#f5f5f5',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 24,
+  speedInfo: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  button: {
+    marginBottom: 16,
+  },
+  readerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewContainer: {
+    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 12,
+    maxWidth: width * 0.9,
   },
   previewText: {
     fontSize: 16,
     lineHeight: 24,
+    marginBottom: 12,
   },
-  button: {
-    paddingVertical: 8,
-  },
-  readingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  word: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  wordCount: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
 

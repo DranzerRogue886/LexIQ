@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, Dimensions } from 'react-native';
-import { Text, IconButton, useTheme, Portal, Surface } from 'react-native-paper';
+import { Text, IconButton, useTheme, Portal, Surface, Button } from 'react-native-paper';
 import { Audio } from 'expo-av';
+import { useVocabulary, WordData } from '../contexts/VocabularyContext';
 
 interface VocabularyLookupProps {
   word: string;
   position: { x: number; y: number };
   onClose: () => void;
-  onSaveToDeck: (wordData: WordData) => void;
+  source?: string; // Which reading activity this word came from
 }
 
-interface WordData {
+interface DictionaryWordData {
   word: string;
   phonetics: string;
   audio: string;
@@ -24,54 +25,72 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({
   word,
   position,
   onClose,
-  onSaveToDeck,
+  source = 'unknown',
 }) => {
   const theme = useTheme();
-  const [wordData, setWordData] = useState<WordData | null>(null);
+  const { addWord, vocabulary } = useVocabulary();
+  const [wordData, setWordData] = useState<DictionaryWordData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const isMountedRef = useRef(true);
+
+  // Check if word is already in vocabulary
+  const existingWord = vocabulary.find(w => w.word.toLowerCase() === word.toLowerCase());
 
   useEffect(() => {
-    fetchDefinition();
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (sound) {
         sound.unloadAsync();
       }
     };
-  }, [word]);
+  }, []);
 
-  const fetchDefinition = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Definition not found');
+  useEffect(() => {
+    if (!word) return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch(
+          `https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`
+        );
+        
+        if (!response.ok) {
+          throw new Error('Definition not found');
+        }
+
+        const data = await response.json();
+        if (!isMountedRef.current) return;
+
+        const processedData: DictionaryWordData = {
+          word: data[0].word,
+          phonetics: data[0].phonetics?.[0]?.text || '',
+          audio: data[0].phonetics?.[0]?.audio || '',
+          meanings: data[0].meanings.map((entry: any) => ({
+            partOfSpeech: entry.partOfSpeech,
+            definitions: entry.definitions.map((def: any) => def.definition),
+          })),
+        };
+
+        setWordData(processedData);
+      } catch (err) {
+        if (isMountedRef.current) {
+          setError('Definition not found');
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
+    };
 
-      const data = await response.json();
-      const processedData: WordData = {
-        word: data[0].word,
-        phonetics: data[0].phonetics?.[0]?.text || '',
-        audio: data[0].phonetics?.[0]?.audio || '',
-        meanings: data[0].meanings.map((entry: any) => ({
-          partOfSpeech: entry.partOfSpeech,
-          definitions: entry.definitions.map((def: any) => def.definition),
-        })),
-      };
-
-      setWordData(processedData);
-    } catch (err) {
-      setError('Definition not found');
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchData();
+  }, [word]);
 
   const playAudio = async () => {
     if (!wordData?.audio) return;
@@ -85,14 +104,25 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({
         { shouldPlay: true }
       );
       setSound(newSound);
-    } catch (err) {
-      console.error('Error playing audio:', err);
+    } catch (error) {
+      console.error('Error playing audio:', error);
     }
   };
 
-  const handleSaveToDeck = () => {
+  const handleSaveToVocabulary = async () => {
     if (wordData) {
-      onSaveToDeck(wordData);
+      const vocabularyWordData: WordData = {
+        word: wordData.word,
+        phonetics: wordData.phonetics,
+        audio: wordData.audio,
+        meanings: wordData.meanings,
+        source: source,
+        dateAdded: new Date().toISOString(),
+        masteryLevel: 'new',
+        reviewCount: 0,
+      };
+      
+      await addWord(vocabularyWordData);
       setIsSaved(true);
     }
   };
@@ -128,9 +158,10 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({
                     {wordData.word}
                   </Text>
                   <IconButton
-                    icon={isSaved ? 'star' : 'star-outline'}
+                    icon={isSaved || existingWord ? 'star' : 'star-outline'}
                     size={24}
-                    onPress={handleSaveToDeck}
+                    onPress={handleSaveToVocabulary}
+                    disabled={isSaved || existingWord}
                   />
                 </View>
 
@@ -172,6 +203,24 @@ export const VocabularyLookup: React.FC<VocabularyLookupProps> = ({
                     ))}
                   </View>
                 ))}
+
+                {source !== 'unknown' && (
+                  <Text style={[styles.source, { color: theme.colors.onSurfaceVariant }]}>
+                    Source: {source}
+                  </Text>
+                )}
+
+                {isSaved && (
+                  <Text style={[styles.savedMessage, { color: theme.colors.primary }]}>
+                    ✓ Added to vocabulary
+                  </Text>
+                )}
+
+                {existingWord && (
+                  <Text style={[styles.savedMessage, { color: theme.colors.primary }]}>
+                    ✓ Already in vocabulary
+                  </Text>
+                )}
               </View>
             ) : null}
           </Surface>
@@ -185,42 +234,63 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modal: {
     position: 'absolute',
-    width: Dimensions.get('window').width * 0.8,
-    maxHeight: Dimensions.get('window').height * 0.6,
+    width: 300,
+    maxHeight: 400,
     borderRadius: 12,
-    elevation: 5,
     padding: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   content: {
-    gap: 12,
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
   word: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
+    flex: 1,
   },
   phonetics: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 12,
   },
   meaning: {
-    gap: 8,
+    marginBottom: 12,
   },
   partOfSpeech: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
     fontStyle: 'italic',
   },
   definition: {
     fontSize: 14,
+    marginBottom: 2,
     lineHeight: 20,
+  },
+  source: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  savedMessage: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
+    fontWeight: 'bold',
   },
 }); 

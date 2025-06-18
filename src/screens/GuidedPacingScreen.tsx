@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, GestureResponderEvent } from 'react-native';
+import type { View as RNView } from 'react-native';
 import { Text, Button, SegmentedButtons, useTheme } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import { GuidedPacer } from '../components/GuidedPacer';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { VocabularyLookup } from '../components/VocabularyLookup';
 import { useVocabulary } from '../contexts/VocabularyContext';
-import { GestureResponderEvent } from 'react-native';
 
 type RootStackParamList = {
   GuidedPacing: undefined;

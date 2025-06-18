@@ -21,6 +21,12 @@
     "plugins": [
       "expo-secure-store"
     ],
-    "sdkVersion": "53.0.0"
+    "sdkVersion": "53.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "e1c2f467-e408-4c69-b8a4-da98053a3bca"
+      },
+      "owner": "dranzer_rogue886"
+    }
   }
-} 
+}
