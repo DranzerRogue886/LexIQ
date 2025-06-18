@@ -4,6 +4,8 @@ import { Card, Title, Paragraph, Button, useTheme, Text } from 'react-native-pap
 import { useAuth } from '../contexts/AuthContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
+import { TouchableOpacity } from 'react-native';
+import { IconButton } from 'react-native-paper';
 
 type RootStackParamList = {
   Home: undefined;
@@ -11,6 +13,7 @@ type RootStackParamList = {
   GuidedPacing: undefined;
   WordChunking: undefined;
   Profile: undefined;
+  VocabularyDeck: undefined;
 };
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
@@ -60,6 +63,23 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     },
   ];
 
+  const renderFeatureCard = (
+    title: string,
+    description: string,
+    icon: string,
+    onPress: () => void,
+    color: string
+  ) => (
+    <TouchableOpacity
+      style={[styles.featureCard, { backgroundColor: color }]}
+      onPress={onPress}
+    >
+      <IconButton icon={icon} size={32} iconColor="white" />
+      <Text style={styles.featureTitle}>{title}</Text>
+      <Text style={styles.featureDescription}>{description}</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -96,6 +116,37 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </Card.Actions>
           </Card>
         ))}
+      </View>
+
+      <View style={styles.featuresGrid}>
+        {renderFeatureCard(
+          'RSVP Reading',
+          'Speed reading with rapid serial visual presentation',
+          'lightning-bolt',
+          () => navigation.navigate('RSVP'),
+          theme.colors.primary
+        )}
+        {renderFeatureCard(
+          'Guided Pacing',
+          'Follow a moving guide to maintain reading pace',
+          'cursor-move',
+          () => navigation.navigate('GuidedPacing'),
+          theme.colors.secondary
+        )}
+        {renderFeatureCard(
+          'Word Chunking',
+          'Read text in meaningful word groups',
+          'text-box-multiple',
+          () => navigation.navigate('WordChunking'),
+          theme.colors.tertiary
+        )}
+        {renderFeatureCard(
+          'Vocabulary Deck',
+          'Review and practice saved vocabulary',
+          'book-open-variant',
+          () => navigation.navigate('VocabularyDeck'),
+          theme.colors.primary
+        )}
       </View>
 
       <Button
@@ -162,6 +213,28 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     alignSelf: 'center',
     width: isTablet ? 400 : '80%',
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  featureCard: {
+    width: '45%',
+    margin: 5,
+    padding: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
+  featureDescription: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
 

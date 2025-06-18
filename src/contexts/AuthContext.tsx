@@ -62,11 +62,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!mounted) return;
     
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Simulate API call with a shorter timeout
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Batch state updates
+      if (mounted) {
+        setLoading(true);
+        setError(null);
+      }
       
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -87,18 +87,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         comprehensionScores: [],
       };
       
+      // Store user data first
       await AsyncStorage.setItem('user', JSON.stringify(mockUser));
-      await SecureStore.setItemAsync('userToken', 'mock-token');
+      
+      // Batch state updates
       if (mounted) {
         setUser(mockUser);
+        setLoading(false);
       }
     } catch (err) {
       console.error('Sign in error:', err);
       if (mounted) {
         setError(err instanceof Error ? err.message : 'Failed to sign in. Please try again.');
-      }
-    } finally {
-      if (mounted) {
         setLoading(false);
       }
     }
@@ -108,11 +108,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!mounted) return;
     
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Simulate API call with a shorter timeout
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Batch state updates
+      if (mounted) {
+        setLoading(true);
+        setError(null);
+      }
       
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -138,18 +138,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         comprehensionScores: [],
       };
       
+      // Store user data first
       await AsyncStorage.setItem('user', JSON.stringify(mockUser));
-      await SecureStore.setItemAsync('userToken', 'mock-token');
+      
+      // Batch state updates
       if (mounted) {
         setUser(mockUser);
+        setLoading(false);
       }
     } catch (err) {
       console.error('Sign up error:', err);
       if (mounted) {
         setError(err instanceof Error ? err.message : 'Failed to sign up. Please try again.');
-      }
-    } finally {
-      if (mounted) {
         setLoading(false);
       }
     }
@@ -159,20 +159,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!mounted) return;
     
     try {
-      setLoading(true);
-      setError(null);
+      // Batch state updates
+      if (mounted) {
+        setLoading(true);
+        setError(null);
+      }
+      
+      // Clear storage first
       await AsyncStorage.removeItem('user');
-      await SecureStore.deleteItemAsync('userToken');
+      
+      // Batch state updates
       if (mounted) {
         setUser(null);
+        setLoading(false);
       }
     } catch (err) {
       console.error('Sign out error:', err);
       if (mounted) {
         setError('Failed to sign out');
-      }
-    } finally {
-      if (mounted) {
         setLoading(false);
       }
     }

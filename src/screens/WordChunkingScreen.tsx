@@ -4,9 +4,13 @@ import { Text, Button, SegmentedButtons, useTheme } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import { WordChunker } from '../components/WordChunker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { VocabularyLookup } from '../components/VocabularyLookup';
+import { useVocabulary } from '../contexts/VocabularyContext';
+import { GestureResponderEvent } from 'react-native';
 
 type RootStackParamList = {
   WordChunking: undefined;
+  WordRecall: { passageWords: string[] };
 };
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WordChunking'>;
@@ -16,7 +20,9 @@ const WordChunkingScreen: React.FC<Props> = ({ navigation }) => {
   const [chunkSize, setChunkSize] = useState(3);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [isReading, setIsReading] = useState(false);
+  const [selectedWord, setSelectedWord] = useState<{ word: string; position: { x: number; y: number } } | null>(null);
   const theme = useTheme();
+  const { addToDeck } = useVocabulary();
 
   const sampleTexts = {
     easy: "The quick brown fox jumps over the lazy dog. This is a simple sentence that helps you practice reading. The words are common and easy to understand.",
@@ -26,6 +32,23 @@ const WordChunkingScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleComplete = () => {
     setIsReading(false);
+    // Navigate to Word Recall game with the passage words
+    navigation.navigate('WordRecall', {
+      passageWords: sampleTexts[difficulty].split(/\s+/),
+    });
+  };
+
+  const handleWordPress = (word: string, event: GestureResponderEvent) => {
+    const { pageX, pageY } = event.nativeEvent;
+    setSelectedWord({ word, position: { x: pageX, y: pageY } });
+  };
+
+  const handleCloseLookup = () => {
+    setSelectedWord(null);
+  };
+
+  const handleSaveToDeck = (wordData: any) => {
+    addToDeck(wordData);
   };
 
   if (isReading) {
@@ -102,6 +125,15 @@ const WordChunkingScreen: React.FC<Props> = ({ navigation }) => {
       >
         Start Reading
       </Button>
+
+      {selectedWord && (
+        <VocabularyLookup
+          word={selectedWord.word}
+          position={selectedWord.position}
+          onClose={handleCloseLookup}
+          onSaveToDeck={handleSaveToDeck}
+        />
+      )}
     </View>
   );
 };
@@ -143,6 +175,15 @@ const styles = StyleSheet.create({
   },
   button: {
     paddingVertical: 8,
+  },
+  readingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  word: {
+    fontSize: 16,
+    marginRight: 8,
   },
 });
 

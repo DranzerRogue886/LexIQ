@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, SafeAreaView } from 'react-native';
 import { TextInput, Button, Text, useTheme } from 'react-native-paper';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,31 +31,36 @@ const LoginScreen = () => {
     }
   }, [authError]);
 
+  const validateInputs = useCallback(() => {
+    if (!email || !password) {
+      setErrorMessage('Please fill in all fields');
+      return false;
+    }
+
+    if (isSignUp && !username) {
+      setErrorMessage('Please enter a username');
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setErrorMessage('Please enter a valid email address');
+      return false;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters long');
+      return false;
+    }
+
+    return true;
+  }, [email, password, username, isSignUp]);
+
   const handleSubmit = async () => {
     try {
       setErrorMessage('');
 
-      // Basic validation
-      if (!email || !password) {
-        setErrorMessage('Please fill in all fields');
-        return;
-      }
-
-      if (isSignUp && !username) {
-        setErrorMessage('Please enter a username');
-        return;
-      }
-
-      // Email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        setErrorMessage('Please enter a valid email address');
-        return;
-      }
-
-      // Password validation
-      if (password.length < 6) {
-        setErrorMessage('Password must be at least 6 characters long');
+      if (!validateInputs()) {
         return;
       }
 
@@ -65,8 +70,8 @@ const LoginScreen = () => {
         await signIn(email, password);
       }
       
-      // Only navigate if there's no error
-      if (!errorMessage) {
+      // Check auth error instead of local error message
+      if (!authError) {
         navigation.replace('Home');
       }
     } catch (err) {

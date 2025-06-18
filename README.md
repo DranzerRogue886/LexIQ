@@ -1,66 +1,83 @@
-# LexIQ - Speed Reading App
+# LexIQ - Speed Reading & Vocabulary Learning App
 
-LexIQ is a React Native mobile application designed to help users improve their reading speed and comprehension through various reading techniques.
+LexIQ is a comprehensive speed reading and vocabulary learning application that helps users improve their reading speed and expand their vocabulary through various interactive exercises.
 
 ## Features
 
-- **RSVP Reader**: Rapid Serial Visual Presentation for efficient word-by-word reading
-- **Guided Pacing**: Visual guidance to reduce inefficient eye movement
-- **Word Chunking**: Process multiple words per eye fixation
-- **Progress Tracking**: Monitor your reading speed and comprehension improvements
-- **User Authentication**: Secure sign-in and sign-up functionality
+### Reading Exercises
+- **RSVP Reading**: Rapid Serial Visual Presentation for speed reading practice
+- **Guided Pacing**: Follow a moving guide to maintain reading pace
+- **Word Chunking**: Read text in meaningful word groups
 
-## Technologies Used
-
-- React Native
-- Expo
-- TypeScript
-- React Navigation
-- React Native Paper
-- AsyncStorage
-- Expo Linear Gradient
+### Vocabulary Learning
+- **Inline Dictionary**: Tap any word to see definitions, pronunciation, and examples
+- **Vocabulary Deck**: Save and review words with spaced repetition
+- **Word Recall Game**: Test your memory of words from reading sessions
 
 ## Getting Started
 
 ### Prerequisites
-
 - Node.js (v14 or later)
 - npm or yarn
-- Expo CLI
-- Android Studio (for Android development)
-- Xcode (for iOS development, macOS only)
+- React Native development environment setup
 
 ### Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/DranzerRogue886/LexIQ.git
+git clone https://github.com/yourusername/LexIQ.git
 cd LexIQ
 ```
 
 2. Install dependencies:
 ```bash
 npm install
+# or
+yarn install
 ```
 
 3. Start the development server:
 ```bash
-npx expo start
+npm start
+# or
+yarn start
 ```
 
-4. Run on your device:
-   - Scan the QR code with Expo Go (Android) or Camera app (iOS)
-   - Press 'a' to open in Android emulator
-   - Press 'i' to open in iOS simulator
+4. Run on your preferred platform:
+```bash
+# For iOS
+npm run ios
+# or
+yarn ios
+
+# For Android
+npm run android
+# or
+yarn android
+```
+
+## Tech Stack
+
+- React Native
+- TypeScript
+- React Navigation
+- React Native Paper
+- Expo
+- AsyncStorage for local data persistence
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Author
+## Acknowledgments
 
-- DranzerRogue886 
+- Free Dictionary API for vocabulary definitions
+- React Native community for excellent documentation and tools 

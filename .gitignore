@@ -58,5 +58,6 @@ yarn-error.log
 dist/
 web-build/
 
-# TypeScript
-*.tsbuildinfo 
+# Environment variables
+.env
+.env.* 
